@@ -6,6 +6,12 @@
   <title>StockMaster Pro - Warehouse Stock Management</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Firebase (Realtime Database for live sync) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <!-- Google Identity + Drive API (backup) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -123,6 +129,9 @@
           <a href="#" onclick="showPage('reports')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-slate-600 dark:text-slate-300 transition" data-page="reports">
             <i class="fas fa-file-alt w-5 text-center"></i> <span data-i18n="reports">Reports</span>
           </a>
+          <a href="#" onclick="showPage('cloud')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-slate-600 dark:text-slate-300 transition" data-page="cloud">
+            <i class="fas fa-cloud w-5 text-center"></i> <span>Cloud Sync</span>
+          </a>
           <a href="#" onclick="logout()" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-slate-600 dark:text-slate-300 transition">
             <i class="fas fa-sign-out-alt w-5 text-center"></i> <span data-i18n="logout">Logout</span>
           </a>
@@ -131,6 +140,12 @@
           <div class="flex gap-2">
             <button onclick="toggleTheme()" class="flex-1 text-xs py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" id="themeBtn">🌙</button>
             <button onclick="toggleLang()" class="flex-1 text-xs py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600" id="langBtn2">සිං</button>
+          </div>
+          <div class="px-1 flex items-center justify-between">
+            <div id="syncStatus" class="text-[10px] text-slate-500 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span> <span>Local</span>
+            </div>
+            <button onclick="manualSync()" class="text-[10px] text-primary-600 hover:underline" title="Force sync">↻ Sync</button>
           </div>
           <div class="flex items-center gap-2 px-1">
             <div class="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center"><i class="fas fa-user text-primary-600 text-sm"></i></div>
@@ -148,6 +163,29 @@
         <div class="md:hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center gap-3 no-print">
           <button onclick="openSidebar()" class="text-slate-600 dark:text-slate-300"><i class="fas fa-bars text-lg"></i></button>
           <h2 class="font-semibold text-sm" id="mobileTitle">Dashboard</h2>
+        </div>
+
+        <!-- Barcode Scan Bar -->
+        <div class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 no-print">
+          <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center max-w-3xl">
+            <div class="relative flex-1">
+              <i class="fas fa-barcode absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input type="text" id="globalBarcodeScan" placeholder="Scan barcode here (or type + Enter)..." autocomplete="off"
+                class="w-full pl-10 pr-4 py-2.5 border-2 border-primary-300 dark:border-primary-600 rounded-lg text-sm bg-white dark:bg-slate-700 focus:ring-2 focus:ring-primary-500 outline-none font-mono"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();handleBarcodeScan(this.value);this.value='';}">
+            </div>
+            <div class="flex gap-2">
+              <select id="scanAction" class="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700">
+                <option value="find">Find Product</option>
+                <option value="stockin">→ Stock In</option>
+                <option value="stockout">→ Stock Out</option>
+              </select>
+              <button onclick="focusBarcodeScan()" class="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm" title="Focus scanner">
+                <i class="fas fa-crosshairs"></i>
+              </button>
+            </div>
+          </div>
+          <p id="scanFeedback" class="text-xs mt-1.5 text-slate-500 hidden"></p>
         </div>
 
         <!-- DASHBOARD -->
@@ -372,6 +410,77 @@
             </div>
           </div>
         </div>
+
+        <!-- CLOUD SYNC -->
+        <div id="page-cloud" class="page flex-1 overflow-y-auto">
+          <div class="p-4 md:p-6 max-w-3xl">
+            <h2 class="text-xl font-bold mb-1">Cloud Sync & Backup</h2>
+            <p class="text-sm text-slate-500 mb-6">Firebase = live multi-device sync · Google Drive = auto backup</p>
+
+            <!-- Status cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <i class="fas fa-fire text-orange-500"></i>
+                  <h3 class="font-semibold text-sm">Firebase Live Sync</h3>
+                </div>
+                <p id="fbStatus" class="text-xs text-slate-500">Not connected</p>
+                <p id="fbLastSync" class="text-[10px] text-slate-400 mt-1"></p>
+              </div>
+              <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <i class="fab fa-google-drive text-green-600"></i>
+                  <h3 class="font-semibold text-sm">Google Drive Backup</h3>
+                </div>
+                <p id="driveStatus" class="text-xs text-slate-500">Not connected</p>
+                <p id="driveLastBackup" class="text-[10px] text-slate-400 mt-1"></p>
+              </div>
+            </div>
+
+            <!-- Firebase config -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5 space-y-3">
+              <h3 class="font-semibold text-primary-600">1. Firebase Realtime Database</h3>
+              <p class="text-xs text-slate-500">Firebase Console → Project settings → Your apps → Config. Enable Realtime Database.</p>
+              <input type="text" id="fbApiKey" placeholder="apiKey" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 outline-none font-mono">
+              <input type="text" id="fbAuthDomain" placeholder="authDomain (project.firebaseapp.com)" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 outline-none font-mono">
+              <input type="text" id="fbDatabaseURL" placeholder="databaseURL (https://project-default-rtdb....firebaseio.com)" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 outline-none font-mono">
+              <input type="text" id="fbProjectId" placeholder="projectId" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 outline-none font-mono">
+              <div class="flex flex-wrap gap-2">
+                <button onclick="saveFirebaseConfig()" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm">Save & Connect Firebase</button>
+                <button onclick="pushAllToFirebase()" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm">Push all data up</button>
+                <button onclick="pullAllFromFirebase()" class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">Pull from cloud</button>
+              </div>
+            </div>
+
+            <!-- Google Drive -->
+            <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 mb-5 space-y-3">
+              <h3 class="font-semibold text-primary-600">2. Google Drive Auto Backup</h3>
+              <p class="text-xs text-slate-500">Google Cloud Console → OAuth Client ID (Web). Enable Drive API. Add your origin to Authorized JavaScript origins.</p>
+              <input type="text" id="gClientId" placeholder="OAuth Client ID (xxxx.apps.googleusercontent.com)" class="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700 outline-none font-mono">
+              <div class="flex flex-wrap items-center gap-3">
+                <label class="text-sm">Auto backup every</label>
+                <select id="driveInterval" class="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-700">
+                  <option value="0">Off</option>
+                  <option value="5">5 min</option>
+                  <option value="15" selected>15 min</option>
+                  <option value="30">30 min</option>
+                  <option value="60">60 min</option>
+                </select>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="saveDriveConfig()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">Save Client ID</button>
+                <button onclick="connectGoogleDrive()" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm">Connect Google Drive</button>
+                <button onclick="backupToDriveNow()" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg text-sm">Backup Now</button>
+                <button onclick="restoreFromDrive()" class="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm">Restore from Drive</button>
+              </div>
+            </div>
+
+            <div class="text-xs text-slate-500 space-y-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+              <p><b>Tip:</b> Open this HTML via a local server (e.g. Live Server) so Google OAuth works. <code>file://</code> often blocks Drive login.</p>
+              <p>Firebase rules: for testing use <code>{ "rules": { ".read": true, ".write": true } }</code> then lock down later.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -561,11 +670,169 @@
     document.documentElement.classList.add('dark');
   }
 
-  // ========== DB (localStorage) ==========
+  // ========== DB (localStorage) + REAL-TIME SYNC ==========
+  const SYNC_CHANNEL = 'stockmaster_rt_sync';
+  const TAB_ID = 'tab_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  let syncChannel = null;
+  let applyingRemote = false;
+  let lastSyncAt = 0;
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      syncChannel = new BroadcastChannel(SYNC_CHANNEL);
+      syncChannel.onmessage = (ev) => {
+        if (!ev.data || ev.data.from === TAB_ID) return;
+        applyRemoteSync(ev.data);
+      };
+    }
+  } catch (e) {}
+
   const DB = {
     get(k) { try { return JSON.parse(localStorage.getItem('sm_' + k)) || null; } catch { return null; } },
-    set(k, v) { localStorage.setItem('sm_' + k, JSON.stringify(v)); }
+    set(k, v) {
+      localStorage.setItem('sm_' + k, JSON.stringify(v));
+      if (!applyingRemote) broadcastSync(k, v);
+    }
   };
+
+  function broadcastSync(key, value) {
+    const payload = {
+      type: 'data',
+      key,
+      value,
+      from: TAB_ID,
+      at: Date.now()
+    };
+    try {
+      if (syncChannel) syncChannel.postMessage(payload);
+    } catch (e) {}
+    // Also write a ping key so storage event fires on other tabs (same origin)
+    try {
+      localStorage.setItem('sm_sync_ping', JSON.stringify({ key, from: TAB_ID, at: Date.now() }));
+    } catch (e) {}
+    updateSyncStatus('synced');
+  }
+
+  function applyRemoteSync(msg) {
+    if (!msg || msg.from === TAB_ID) return;
+    applyingRemote = true;
+    try {
+      if (msg.type === 'full') {
+        if (msg.products) { products = msg.products; DB.set('products', products); }
+        if (msg.suppliers) { suppliers = msg.suppliers; DB.set('suppliers', suppliers); }
+        if (msg.customers) { customers = msg.customers; DB.set('customers', customers); }
+        if (msg.stockIn) { stockInRecords = msg.stockIn; DB.set('stockIn', stockInRecords); }
+        if (msg.stockOut) { stockOutRecords = msg.stockOut; DB.set('stockOut', stockOutRecords); }
+      } else if (msg.type === 'data' && msg.key) {
+        localStorage.setItem('sm_' + msg.key, JSON.stringify(msg.value));
+        if (msg.key === 'products') products = msg.value || [];
+        if (msg.key === 'suppliers') suppliers = msg.value || [];
+        if (msg.key === 'customers') customers = msg.value || [];
+        if (msg.key === 'stockIn') stockInRecords = msg.value || [];
+        if (msg.key === 'stockOut') stockOutRecords = msg.value || [];
+      } else if (msg.type === 'request_full') {
+        // Another tab asked for full state — reply
+        broadcastFullState();
+        applyingRemote = false;
+        return;
+      }
+      lastSyncAt = Date.now();
+      updateSyncStatus('synced');
+      refreshActivePage();
+    } finally {
+      applyingRemote = false;
+    }
+  }
+
+  function broadcastFullState() {
+    const payload = {
+      type: 'full',
+      from: TAB_ID,
+      at: Date.now(),
+      products,
+      suppliers,
+      customers,
+      stockIn: stockInRecords,
+      stockOut: stockOutRecords
+    };
+    try {
+      if (syncChannel) syncChannel.postMessage(payload);
+    } catch (e) {}
+  }
+
+  // Cross-tab via storage event (works even without BroadcastChannel)
+  window.addEventListener('storage', function(e) {
+    if (!e.key) return;
+    if (e.key === 'sm_sync_ping') {
+      try {
+        const ping = JSON.parse(e.newValue || '{}');
+        if (ping.from === TAB_ID) return;
+        // Reload the specific key that changed
+        if (ping.key) {
+          applyingRemote = true;
+          if (ping.key === 'products') products = DB.get('products') || [];
+          if (ping.key === 'suppliers') suppliers = DB.get('suppliers') || [];
+          if (ping.key === 'customers') customers = DB.get('customers') || [];
+          if (ping.key === 'stockIn') stockInRecords = DB.get('stockIn') || [];
+          if (ping.key === 'stockOut') stockOutRecords = DB.get('stockOut') || [];
+          applyingRemote = false;
+          lastSyncAt = Date.now();
+          updateSyncStatus('synced');
+          refreshActivePage();
+        }
+      } catch (err) {}
+      return;
+    }
+    if (e.key.startsWith('sm_') && e.key !== 'sm_session' && e.key !== 'sm_theme' && e.key !== 'sm_lang') {
+      const key = e.key.replace(/^sm_/, '');
+      if (['products','suppliers','customers','stockIn','stockOut'].includes(key)) {
+        applyingRemote = true;
+        if (key === 'products') products = DB.get('products') || [];
+        if (key === 'suppliers') suppliers = DB.get('suppliers') || [];
+        if (key === 'customers') customers = DB.get('customers') || [];
+        if (key === 'stockIn') stockInRecords = DB.get('stockIn') || [];
+        if (key === 'stockOut') stockOutRecords = DB.get('stockOut') || [];
+        applyingRemote = false;
+        lastSyncAt = Date.now();
+        updateSyncStatus('synced');
+        refreshActivePage();
+      }
+    }
+  });
+
+  function updateSyncStatus(state) {
+    const el = document.getElementById('syncStatus');
+    if (!el) return;
+    if (state === 'synced') {
+      el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse"></span> <span>Synced</span>';
+      el.className = 'text-[10px] text-green-600 dark:text-green-400 flex items-center gap-1.5';
+    } else if (state === 'syncing') {
+      el.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block animate-pulse"></span> <span>Syncing...</span>';
+      el.className = 'text-[10px] text-amber-600 flex items-center gap-1.5';
+    } else {
+      el.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span> <span>Local</span>';
+      el.className = 'text-[10px] text-slate-500 flex items-center gap-1.5';
+    }
+  }
+
+  function refreshActivePage() {
+    const active = document.querySelector('.page.active');
+    if (!active) return;
+    const id = active.id.replace('page-', '');
+    if (id === 'dashboard') renderDashboard();
+    else if (id === 'products') renderProducts();
+    else if (id === 'stockin') renderStockIn();
+    else if (id === 'stockout') renderStockOut();
+    else if (id === 'currentstock') renderCurrentStock();
+    else if (id === 'suppliers') renderSuppliers();
+    else if (id === 'customers') renderCustomers();
+  }
+
+  function requestSyncFromPeers() {
+    try {
+      if (syncChannel) syncChannel.postMessage({ type: 'request_full', from: TAB_ID, at: Date.now() });
+    } catch (e) {}
+  }
 
   function seed() {
     if (!DB.get('products')) {
@@ -617,11 +884,122 @@
     stockInRecords = DB.get('stockIn') || [];
     stockOutRecords = DB.get('stockOut') || [];
   }
-  function saveProducts() { DB.set('products', products); }
-  function saveSuppliers() { DB.set('suppliers', suppliers); }
-  function saveCustomers() { DB.set('customers', customers); }
-  function saveStockIn() { DB.set('stockIn', stockInRecords); }
-  function saveStockOut() { DB.set('stockOut', stockOutRecords); }
+  function saveProducts() { updateSyncStatus('syncing'); DB.set('products', products); firebasePush('products', products); scheduleDriveBackup(); }
+  function saveSuppliers() { updateSyncStatus('syncing'); DB.set('suppliers', suppliers); firebasePush('suppliers', suppliers); scheduleDriveBackup(); }
+  function saveCustomers() { updateSyncStatus('syncing'); DB.set('customers', customers); firebasePush('customers', customers); scheduleDriveBackup(); }
+  function saveStockIn() { updateSyncStatus('syncing'); DB.set('stockIn', stockInRecords); firebasePush('stockIn', stockInRecords); scheduleDriveBackup(); }
+  function saveStockOut() { updateSyncStatus('syncing'); DB.set('stockOut', stockOutRecords); firebasePush('stockOut', stockOutRecords); scheduleDriveBackup(); }
+
+  // ========== BARCODE SCANNING ==========
+  let barcodeBuffer = '';
+  let barcodeTimer = null;
+
+  function focusBarcodeScan() {
+    const el = document.getElementById('globalBarcodeScan');
+    if (el) { el.focus(); el.select(); }
+  }
+
+  function findByBarcode(code) {
+    code = String(code || '').trim();
+    if (!code) return null;
+    return products.find(p =>
+      (p.barcode && p.barcode === code) ||
+      p.sku === code ||
+      p.name.toLowerCase() === code.toLowerCase()
+    ) || null;
+  }
+
+  function showScanFeedback(msg, ok) {
+    const el = document.getElementById('scanFeedback');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.textContent = msg;
+    el.className = 'text-xs mt-1.5 ' + (ok ? 'text-green-600' : 'text-red-500');
+    setTimeout(() => el.classList.add('hidden'), 4000);
+  }
+
+  function handleBarcodeScan(code) {
+    code = String(code || '').trim();
+    if (!code) return;
+    const p = findByBarcode(code);
+    const action = document.getElementById('scanAction')?.value || 'find';
+
+    if (!p) {
+      showScanFeedback('❌ Product not found: ' + code, false);
+      playBeep();
+      return;
+    }
+
+    showScanFeedback('✓ Found: ' + p.name + ' (Stock: ' + p.stock + ')', true);
+    playBeep();
+
+    if (action === 'find') {
+      showPage('products');
+      const search = document.getElementById('productSearch');
+      if (search) {
+        search.value = p.barcode || p.sku;
+        renderProducts();
+      }
+      // highlight briefly via search
+    } else if (action === 'stockin') {
+      if (currentUser?.role !== 'admin') {
+        showScanFeedback('Admin only for Stock In', false);
+        return;
+      }
+      openStockInModal();
+      setTimeout(() => {
+        const sel = document.getElementById('siProduct');
+        if (sel) {
+          // select by product name
+          for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === p.name) { sel.selectedIndex = i; break; }
+          }
+        }
+        document.getElementById('siQty')?.focus();
+      }, 100);
+    } else if (action === 'stockout') {
+      if (currentUser?.role !== 'admin') {
+        showScanFeedback('Admin only for Stock Out', false);
+        return;
+      }
+      openStockOutModal();
+      setTimeout(() => {
+        const sel = document.getElementById('soProduct');
+        if (sel) {
+          for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value.startsWith(p.name + '|')) { sel.selectedIndex = i; sel.dispatchEvent(new Event('change')); break; }
+          }
+        }
+        document.getElementById('soQty')?.focus();
+      }, 100);
+    }
+  }
+
+  // Global keyboard wedge listener (when not typing in inputs)
+  document.addEventListener('keydown', function(e) {
+    // Don't capture if user is typing in an input/textarea/select (except our scan field)
+    const tag = (e.target.tagName || '').toLowerCase();
+    const isScanField = e.target.id === 'globalBarcodeScan';
+    if (!isScanField && (tag === 'input' || tag === 'textarea' || tag === 'select')) return;
+    if (document.getElementById('loginPage') && !document.getElementById('loginPage').classList.contains('hidden')) return;
+    if (!currentUser) return;
+
+    if (e.key === 'Enter') {
+      if (barcodeBuffer.length >= 3) {
+        e.preventDefault();
+        handleBarcodeScan(barcodeBuffer);
+      }
+      barcodeBuffer = '';
+      clearTimeout(barcodeTimer);
+      return;
+    }
+
+    if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      barcodeBuffer += e.key;
+      clearTimeout(barcodeTimer);
+      barcodeTimer = setTimeout(() => { barcodeBuffer = ''; }, 80);
+    }
+  });
 
   // ========== HELPERS ==========
   function money(n) { return 'Rs. ' + Number(n||0).toLocaleString('en-LK'); }
@@ -660,7 +1038,7 @@
     });
     const a = document.querySelector(`[data-page="${page}"]`);
     if (a) { a.classList.add('active'); a.classList.remove('text-slate-600', 'dark:text-slate-300'); }
-    const titles = {dashboard:'Dashboard',products:'Products',stockin:'Stock In',stockout:'Stock Out',currentstock:'Current Stock',suppliers:'Suppliers',customers:'Customers',reports:'Reports'};
+    const titles = {dashboard:'Dashboard',products:'Products',stockin:'Stock In',stockout:'Stock Out',currentstock:'Current Stock',suppliers:'Suppliers',customers:'Customers',reports:'Reports',cloud:'Cloud Sync'};
     document.getElementById('mobileTitle').textContent = titles[page] || page;
     closeSidebar();
     if (page === 'dashboard') renderDashboard();
@@ -670,6 +1048,7 @@
     if (page === 'currentstock') renderCurrentStock();
     if (page === 'suppliers') renderSuppliers();
     if (page === 'customers') renderCustomers();
+    if (page === 'cloud') renderCloudPage();
   }
   function openSidebar() {
     document.getElementById('sidebar').classList.add('open');
@@ -724,6 +1103,341 @@
     loadData();
     applyI18n();
     showPage('dashboard');
+    setTimeout(focusBarcodeScan, 300);
+    // Real-time: ask other open tabs for latest data
+    setTimeout(() => {
+      requestSyncFromPeers();
+      broadcastFullState();
+      updateSyncStatus('synced');
+      initFirebase();
+      setupDriveAutoBackup();
+    }, 200);
+  }
+
+  function manualSync() {
+    updateSyncStatus('syncing');
+    loadData();
+    broadcastFullState();
+    requestSyncFromPeers();
+    if (firebaseReady) pushAllToFirebase();
+    refreshActivePage();
+    setTimeout(() => updateSyncStatus('synced'), 400);
+  }
+
+  // ========== FIREBASE LIVE SYNC ==========
+  let firebaseApp = null;
+  let firebaseDb = null;
+  let firebaseReady = false;
+  let firebaseApplying = false;
+  let firebaseListeners = [];
+
+  function getCloudConfig() {
+    try { return JSON.parse(localStorage.getItem('sm_cloud_config') || '{}'); } catch { return {}; }
+  }
+  function setCloudConfig(cfg) {
+    localStorage.setItem('sm_cloud_config', JSON.stringify(cfg));
+  }
+
+  function renderCloudPage() {
+    const cfg = getCloudConfig();
+    if (document.getElementById('fbApiKey')) {
+      document.getElementById('fbApiKey').value = cfg.fbApiKey || '';
+      document.getElementById('fbAuthDomain').value = cfg.fbAuthDomain || '';
+      document.getElementById('fbDatabaseURL').value = cfg.fbDatabaseURL || '';
+      document.getElementById('fbProjectId').value = cfg.fbProjectId || '';
+      document.getElementById('gClientId').value = cfg.gClientId || '';
+      document.getElementById('driveInterval').value = String(cfg.driveInterval ?? 15);
+    }
+    updateCloudStatusUI();
+  }
+
+  function updateCloudStatusUI() {
+    const fbEl = document.getElementById('fbStatus');
+    const drEl = document.getElementById('driveStatus');
+    if (fbEl) fbEl.textContent = firebaseReady ? 'Connected · live sync on' : 'Not connected';
+    if (drEl) drEl.textContent = driveToken ? 'Connected · backups enabled' : 'Not connected';
+    const lastFb = localStorage.getItem('sm_fb_last');
+    const lastDr = localStorage.getItem('sm_drive_last');
+    const fbLast = document.getElementById('fbLastSync');
+    const drLast = document.getElementById('driveLastBackup');
+    if (fbLast) fbLast.textContent = lastFb ? 'Last: ' + new Date(+lastFb).toLocaleString() : '';
+    if (drLast) drLast.textContent = lastDr ? 'Last backup: ' + new Date(+lastDr).toLocaleString() : '';
+  }
+
+  function saveFirebaseConfig() {
+    const cfg = getCloudConfig();
+    cfg.fbApiKey = document.getElementById('fbApiKey').value.trim();
+    cfg.fbAuthDomain = document.getElementById('fbAuthDomain').value.trim();
+    cfg.fbDatabaseURL = document.getElementById('fbDatabaseURL').value.trim();
+    cfg.fbProjectId = document.getElementById('fbProjectId').value.trim();
+    setCloudConfig(cfg);
+    initFirebase();
+    alert(firebaseReady ? 'Firebase connected!' : 'Could not connect. Check config & enable Realtime Database.');
+    updateCloudStatusUI();
+  }
+
+  function initFirebase() {
+    const cfg = getCloudConfig();
+    if (!cfg.fbApiKey || !cfg.fbDatabaseURL) {
+      firebaseReady = false;
+      return;
+    }
+    try {
+      if (firebaseApp) {
+        // already initialized — re-attach listeners
+        attachFirebaseListeners();
+        firebaseReady = true;
+        updateCloudStatusUI();
+        return;
+      }
+      firebaseApp = firebase.initializeApp({
+        apiKey: cfg.fbApiKey,
+        authDomain: cfg.fbAuthDomain || undefined,
+        databaseURL: cfg.fbDatabaseURL,
+        projectId: cfg.fbProjectId || undefined
+      });
+      firebaseDb = firebase.database();
+      firebaseReady = true;
+      attachFirebaseListeners();
+      updateSyncStatus('synced');
+      updateCloudStatusUI();
+    } catch (e) {
+      console.error(e);
+      firebaseReady = false;
+      alert('Firebase error: ' + e.message);
+    }
+  }
+
+  function attachFirebaseListeners() {
+    if (!firebaseDb) return;
+    firebaseListeners.forEach(ref => { try { ref.off(); } catch(e){} });
+    firebaseListeners = [];
+    const keys = ['products', 'suppliers', 'customers', 'stockIn', 'stockOut'];
+    keys.forEach(key => {
+      const ref = firebaseDb.ref('stockmaster/' + key);
+      const handler = (snap) => {
+        if (firebaseApplying) return;
+        const val = snap.val();
+        if (val == null) return;
+        firebaseApplying = true;
+        applyingRemote = true;
+        try {
+          const arr = Array.isArray(val) ? val : Object.values(val);
+          if (key === 'products') { products = arr; DB.set('products', products); }
+          if (key === 'suppliers') { suppliers = arr; DB.set('suppliers', suppliers); }
+          if (key === 'customers') { customers = arr; DB.set('customers', customers); }
+          if (key === 'stockIn') { stockInRecords = arr; DB.set('stockIn', stockInRecords); }
+          if (key === 'stockOut') { stockOutRecords = arr; DB.set('stockOut', stockOutRecords); }
+          localStorage.setItem('sm_fb_last', String(Date.now()));
+          updateSyncStatus('synced');
+          refreshActivePage();
+          updateCloudStatusUI();
+        } finally {
+          applyingRemote = false;
+          firebaseApplying = false;
+        }
+      };
+      ref.on('value', handler);
+      firebaseListeners.push(ref);
+    });
+  }
+
+  function firebasePush(key, data) {
+    if (!firebaseReady || !firebaseDb || firebaseApplying || applyingRemote) return;
+    try {
+      firebaseDb.ref('stockmaster/' + key).set(data);
+      localStorage.setItem('sm_fb_last', String(Date.now()));
+      updateCloudStatusUI();
+    } catch (e) { console.warn('Firebase push failed', e); }
+  }
+
+  function pushAllToFirebase() {
+    if (!firebaseReady) return alert('Connect Firebase first');
+    firebasePush('products', products);
+    firebasePush('suppliers', suppliers);
+    firebasePush('customers', customers);
+    firebasePush('stockIn', stockInRecords);
+    firebasePush('stockOut', stockOutRecords);
+    alert('All data pushed to Firebase');
+    updateCloudStatusUI();
+  }
+
+  function pullAllFromFirebase() {
+    if (!firebaseReady || !firebaseDb) return alert('Connect Firebase first');
+    const keys = ['products', 'suppliers', 'customers', 'stockIn', 'stockOut'];
+    let pending = keys.length;
+    keys.forEach(key => {
+      firebaseDb.ref('stockmaster/' + key).once('value').then(snap => {
+        const val = snap.val();
+        if (val != null) {
+          const arr = Array.isArray(val) ? val : Object.values(val);
+          applyingRemote = true;
+          if (key === 'products') { products = arr; DB.set('products', products); }
+          if (key === 'suppliers') { suppliers = arr; DB.set('suppliers', suppliers); }
+          if (key === 'customers') { customers = arr; DB.set('customers', customers); }
+          if (key === 'stockIn') { stockInRecords = arr; DB.set('stockIn', stockInRecords); }
+          if (key === 'stockOut') { stockOutRecords = arr; DB.set('stockOut', stockOutRecords); }
+          applyingRemote = false;
+        }
+        pending--;
+        if (pending === 0) {
+          refreshActivePage();
+          alert('Pulled from Firebase');
+          updateCloudStatusUI();
+        }
+      }).catch(e => alert('Pull failed: ' + e.message));
+    });
+  }
+
+  // ========== GOOGLE DRIVE BACKUP ==========
+  let driveToken = null;
+  let driveFileId = null;
+  let driveBackupTimer = null;
+  let driveBackupPending = false;
+
+  function saveDriveConfig() {
+    const cfg = getCloudConfig();
+    cfg.gClientId = document.getElementById('gClientId').value.trim();
+    cfg.driveInterval = parseInt(document.getElementById('driveInterval').value, 10) || 0;
+    setCloudConfig(cfg);
+    setupDriveAutoBackup();
+    alert('Drive settings saved');
+  }
+
+  function connectGoogleDrive() {
+    const cfg = getCloudConfig();
+    if (!cfg.gClientId) return alert('Enter OAuth Client ID first and Save');
+    if (typeof google === 'undefined' || !google.accounts) {
+      return alert('Google script still loading. Wait a second and try again.');
+    }
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: cfg.gClientId,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: (resp) => {
+        if (resp.error) {
+          alert('Google auth error: ' + (resp.error_description || resp.error));
+          return;
+        }
+        driveToken = resp.access_token;
+        updateCloudStatusUI();
+        setupDriveAutoBackup();
+        alert('Google Drive connected!');
+      }
+    });
+    client.requestAccessToken();
+  }
+
+  function getBackupPayload() {
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      products, suppliers, customers,
+      stockIn: stockInRecords,
+      stockOut: stockOutRecords
+    };
+  }
+
+  async function backupToDriveNow() {
+    if (!driveToken) return alert('Connect Google Drive first');
+    try {
+      const body = JSON.stringify(getBackupPayload(), null, 2);
+      const meta = {
+        name: 'stockmaster-backup.json',
+        mimeType: 'application/json'
+      };
+      // Find existing file
+      const q = encodeURIComponent("name='stockmaster-backup.json' and trashed=false");
+      const listRes = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&spaces=drive', {
+        headers: { Authorization: 'Bearer ' + driveToken }
+      });
+      const listData = await listRes.json();
+      if (listData.error) throw new Error(listData.error.message);
+
+      const existing = (listData.files || [])[0];
+      const boundary = '-------smboundary';
+      const multipart =
+        '--' + boundary + '\r\n' +
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+        JSON.stringify(meta) + '\r\n' +
+        '--' + boundary + '\r\n' +
+        'Content-Type: application/json\r\n\r\n' +
+        body + '\r\n' +
+        '--' + boundary + '--';
+
+      let url, method;
+      if (existing) {
+        driveFileId = existing.id;
+        url = 'https://www.googleapis.com/upload/drive/v3/files/' + existing.id + '?uploadType=multipart';
+        method = 'PATCH';
+      } else {
+        url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+        method = 'POST';
+      }
+      const up = await fetch(url, {
+        method,
+        headers: {
+          Authorization: 'Bearer ' + driveToken,
+          'Content-Type': 'multipart/related; boundary=' + boundary
+        },
+        body: multipart
+      });
+      const upData = await up.json();
+      if (upData.error) throw new Error(upData.error.message);
+      driveFileId = upData.id || driveFileId;
+      localStorage.setItem('sm_drive_last', String(Date.now()));
+      localStorage.setItem('sm_drive_file_id', driveFileId || '');
+      updateCloudStatusUI();
+      alert('Backup uploaded to Google Drive as stockmaster-backup.json');
+    } catch (e) {
+      alert('Drive backup failed: ' + e.message);
+    }
+  }
+
+  async function restoreFromDrive() {
+    if (!driveToken) return alert('Connect Google Drive first');
+    try {
+      const q = encodeURIComponent("name='stockmaster-backup.json' and trashed=false");
+      const listRes = await fetch('https://www.googleapis.com/drive/v3/files?q=' + q + '&spaces=drive', {
+        headers: { Authorization: 'Bearer ' + driveToken }
+      });
+      const listData = await listRes.json();
+      const file = (listData.files || [])[0];
+      if (!file) return alert('No stockmaster-backup.json found on Drive');
+      const contentRes = await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '?alt=media', {
+        headers: { Authorization: 'Bearer ' + driveToken }
+      });
+      const data = await contentRes.json();
+      if (!confirm('Restore will overwrite local data with Drive backup from ' + (data.exportedAt || 'unknown') + '. Continue?')) return;
+      applyingRemote = true;
+      if (data.products) { products = data.products; DB.set('products', products); }
+      if (data.suppliers) { suppliers = data.suppliers; DB.set('suppliers', suppliers); }
+      if (data.customers) { customers = data.customers; DB.set('customers', customers); }
+      if (data.stockIn) { stockInRecords = data.stockIn; DB.set('stockIn', stockInRecords); }
+      if (data.stockOut) { stockOutRecords = data.stockOut; DB.set('stockOut', stockOutRecords); }
+      applyingRemote = false;
+      if (firebaseReady) pushAllToFirebase();
+      refreshActivePage();
+      alert('Restored from Google Drive');
+    } catch (e) {
+      alert('Restore failed: ' + e.message);
+    }
+  }
+
+  function scheduleDriveBackup() {
+    driveBackupPending = true;
+  }
+
+  function setupDriveAutoBackup() {
+    if (driveBackupTimer) clearInterval(driveBackupTimer);
+    const cfg = getCloudConfig();
+    const mins = parseInt(cfg.driveInterval, 10) || 0;
+    if (!mins || !driveToken) return;
+    driveBackupTimer = setInterval(() => {
+      if (driveBackupPending && driveToken) {
+        driveBackupPending = false;
+        backupToDriveNow();
+      }
+    }, mins * 60 * 1000);
   }
 
   function logout() {
