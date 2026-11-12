@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockMaster - Warehouse Stock Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .sidebar-link.active { background-color: #2563eb; color: white; }
+    .sidebar-link:hover:not(.active) { background-color: #f1f5f9; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .modal-open { display: flex !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+  <!-- ==================== LOGIN PAGE ==================== -->
+  <div id="loginPage" class="min-h-screen flex items-center justify-center p-4 bg-slate-100">
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+      <div class="bg-primary-600 text-white p-8 md:p-12 md:w-5/12 flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10">
+          <div class="absolute -top-10 -left-10 w-40 h-40 bg-white rounded-full"></div>
+          <div class="absolute bottom-10 right-10 w-60 h-60 bg-white rounded-full"></div>
+        </div>
+        <div class="relative z-10">
+          <div class="flex items-center gap-3 mb-8">
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center"><i class="fas fa-warehouse text-2xl"></i></div>
+            <div>
+              <h1 class="text-2xl font-bold">StockMaster</h1>
+              <p class="text-primary-100 text-sm">Warehouse Management</p>
+            </div>
+          </div>
+          <h2 class="text-3xl font-bold leading-tight mb-4">Manage your warehouse stock with ease</h2>
+          <p class="text-primary-100 text-sm">Track inventory, monitor stock levels, manage suppliers and generate reports.</p>
+        </div>
+        <div class="relative z-10 mt-10 space-y-3 text-sm">
+          <div class="flex items-center gap-3"><div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center"><i class="fas fa-check text-sm"></i></div><span>Real-time stock tracking</span></div>
+          <div class="flex items-center gap-3"><div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center"><i class="fas fa-check text-sm"></i></div><span>Low stock alerts & reports</span></div>
+          <div class="flex items-center gap-3"><div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center"><i class="fas fa-check text-sm"></i></div><span>Multi-user ready UI</span></div>
+        </div>
+      </div>
+      <div class="p-8 md:p-12 md:w-7/12 flex flex-col justify-center">
+        <div class="max-w-md mx-auto w-full">
+          <h2 class="text-2xl font-bold text-slate-800">Welcome back</h2>
+          <p class="text-slate-500 mt-1 text-sm mb-6">Sign in to your warehouse account</p>
+          <form id="loginForm" class="space-y-5">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><i class="fas fa-envelope"></i></span>
+                <input type="email" id="loginEmail" value="admin@warehouse.com" class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" required>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><i class="fas fa-lock"></i></span>
+                <input type="password" id="loginPassword" value="admin123" class="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500" required>
+                <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><i class="fas fa-eye" id="toggleIcon"></i></button>
+              </div>
+            </div>
+            <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 rounded-lg transition flex items-center justify-center gap-2">
+              <span>Sign In</span><i class="fas fa-arrow-right text-sm"></i>
+            </button>
+          </form>
+          <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600">
+            <p class="font-medium text-slate-500 mb-1">Demo Credentials:</p>
+            <p>Email: admin@warehouse.com</p>
+            <p>Password: admin123</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APP ==================== -->
+  <div id="mainApp" class="hidden h-screen overflow-hidden flex">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm shrink-0">
+      <div class="px-6 py-5 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center"><i class="fas fa-warehouse text-white text-lg"></i></div>
+          <div>
+            <h1 class="font-bold text-lg leading-tight">StockMaster</h1>
+            <p class="text-xs text-slate-500">Warehouse System</p>
+          </div>
+        </div>
+      </div>
+      <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Main</p>
+        <a href="#" onclick="showPage('dashboard')" class="sidebar-link active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition" data-page="dashboard">
+          <i class="fas fa-chart-pie w-5 text-center"></i> Dashboard
+        </a>
+        <a href="#" onclick="showPage('products')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="products">
+          <i class="fas fa-boxes-stacked w-5 text-center"></i> Products
+        </a>
+        <a href="#" onclick="showPage('stockin')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="stockin">
+          <i class="fas fa-arrow-down w-5 text-center"></i> Stock In
+        </a>
+        <a href="#" onclick="showPage('stockout')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="stockout">
+          <i class="fas fa-arrow-up w-5 text-center"></i> Stock Out
+        </a>
+        <a href="#" onclick="showPage('currentstock')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="currentstock">
+          <i class="fas fa-clipboard-list w-5 text-center"></i> Current Stock
+        </a>
+        <p class="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mt-6 mb-2">Management</p>
+        <a href="#" onclick="showPage('suppliers')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="suppliers">
+          <i class="fas fa-truck w-5 text-center"></i> Suppliers
+        </a>
+        <a href="#" onclick="showPage('customers')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="customers">
+          <i class="fas fa-users w-5 text-center"></i> Customers
+        </a>
+        <a href="#" onclick="showPage('reports')" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition" data-page="reports">
+          <i class="fas fa-file-alt w-5 text-center"></i> Reports
+        </a>
+        <a href="#" onclick="logout()" class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 transition">
+          <i class="fas fa-sign-out-alt w-5 text-center"></i> Logout
+        </a>
+      </nav>
+      <div class="p-4 border-t border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center"><i class="fas fa-user text-primary-600"></i></div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">Admin User</p>
+            <p class="text-xs text-slate-500 truncate">admin@warehouse.com</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content Area -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- ========== DASHBOARD ========== -->
+      <div id="page-dashboard" class="page active flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4">
+          <h2 class="text-xl font-semibold">Dashboard</h2>
+          <p class="text-sm text-slate-500">Welcome back! Here's your warehouse overview.</p>
+        </header>
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-slate-500 font-medium">Total Products</p>
+                  <h3 class="text-2xl font-bold mt-1" id="dashTotalProducts">0</h3>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center"><i class="fas fa-boxes-stacked text-blue-600 text-xl"></i></div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-slate-500 font-medium">Total Stock Value</p>
+                  <h3 class="text-2xl font-bold mt-1" id="dashStockValue">Rs. 0</h3>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center"><i class="fas fa-coins text-emerald-600 text-xl"></i></div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-slate-500 font-medium">Low Stock Items</p>
+                  <h3 class="text-2xl font-bold mt-1 text-amber-600" id="dashLowStock">0</h3>
+                </div>
+                <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center"><i class="fas fa-exclamation-circle text-amber-600 text-xl"></i></div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-slate-500 font-medium">Suppliers</p>
+                  <h3 class="text-2xl font-bold mt-1" id="dashSuppliers">0</h3>
+                </div>
+                <div class="w-12 h-12 bg-violet-50 rounded-xl flex items-center justify-center"><i class="fas fa-truck text-violet-600 text-xl"></i></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div class="px-5 py-4 border-b border-slate-100"><h3 class="font-semibold">Recent Stock Movements</h3></div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="bg-slate-50 text-slate-500"><tr>
+                    <th class="text-left px-5 py-3 font-medium">Product</th>
+                    <th class="text-left px-5 py-3 font-medium">Type</th>
+                    <th class="text-left px-5 py-3 font-medium">Qty</th>
+                    <th class="text-left px-5 py-3 font-medium">Date</th>
+                  </tr></thead>
+                  <tbody id="dashRecentBody" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-semibold">Low Stock Alerts</h3>
+                <span class="bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded-full" id="dashLowCount">0</span>
+              </div>
+              <div class="p-4 space-y-3 max-h-80 overflow-y-auto" id="dashLowList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== PRODUCTS ========== -->
+      <div id="page-products" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-semibold">Products</h2>
+            <p class="text-sm text-slate-500">Manage your warehouse product catalog</p>
+          </div>
+          <button onclick="openProductModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Product
+          </button>
+        </header>
+        <div class="p-6">
+          <div class="bg-white rounded-xl border border-slate-200 p-4 mb-5 shadow-sm">
+            <div class="flex flex-col md:flex-row gap-4">
+              <div class="relative flex-1">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="productSearch" onkeyup="renderProducts()" placeholder="Search products..." class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+              </div>
+              <select id="productCategoryFilter" onchange="renderProducts()" class="border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+                <option value="">All Categories</option>
+                <option>Building Materials</option><option>Hardware</option><option>Safety</option><option>Tools</option><option>Paint</option>
+              </select>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 border-b"><tr>
+                  <th class="text-left px-5 py-3.5 font-medium">Product</th>
+                  <th class="text-left px-5 py-3.5 font-medium">SKU</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Category</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Stock</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Price</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Status</th>
+                  <th class="text-right px-5 py-3.5 font-medium">Actions</th>
+                </tr></thead>
+                <tbody id="productsBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== STOCK IN ========== -->
+      <div id="page-stockin" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-semibold">Stock In</h2>
+            <p class="text-sm text-slate-500">Receive inventory into the warehouse</p>
+          </div>
+          <button onclick="openStockInModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-plus"></i> New Stock In
+          </button>
+        </header>
+        <div class="p-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b"><h3 class="font-semibold">Stock In History</h3></div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 border-b"><tr>
+                  <th class="text-left px-5 py-3.5 font-medium">Date</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Invoice</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Product</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Supplier</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Qty</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Total</th>
+                </tr></thead>
+                <tbody id="stockInBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== STOCK OUT ========== -->
+      <div id="page-stockout" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-semibold">Stock Out</h2>
+            <p class="text-sm text-slate-500">Issue or sell stock from the warehouse</p>
+          </div>
+          <button onclick="openStockOutModal()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-plus"></i> New Stock Out
+          </button>
+        </header>
+        <div class="p-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b"><h3 class="font-semibold">Stock Out History</h3></div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 border-b"><tr>
+                  <th class="text-left px-5 py-3.5 font-medium">Date</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Ref</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Product</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Customer</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Type</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Qty</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Total</th>
+                </tr></thead>
+                <tbody id="stockOutBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== CURRENT STOCK ========== -->
+      <div id="page-currentstock" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4">
+          <h2 class="text-xl font-semibold">Current Stock</h2>
+          <p class="text-sm text-slate-500">Real-time inventory levels</p>
+        </header>
+        <div class="p-6">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl border p-4 shadow-sm"><p class="text-sm text-slate-500">Total Items</p><h3 class="text-xl font-bold" id="csTotal">0</h3></div>
+            <div class="bg-white rounded-xl border p-4 shadow-sm"><p class="text-sm text-slate-500">Total Value</p><h3 class="text-xl font-bold text-emerald-600" id="csValue">Rs. 0</h3></div>
+            <div class="bg-white rounded-xl border p-4 shadow-sm"><p class="text-sm text-slate-500">Low Stock</p><h3 class="text-xl font-bold text-amber-600" id="csLow">0</h3></div>
+            <div class="bg-white rounded-xl border p-4 shadow-sm"><p class="text-sm text-slate-500">Out of Stock</p><h3 class="text-xl font-bold text-red-600" id="csOut">0</h3></div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 border-b"><tr>
+                  <th class="text-left px-5 py-3.5 font-medium">Product</th>
+                  <th class="text-left px-5 py-3.5 font-medium">SKU</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Stock</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Reorder</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Value</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Status</th>
+                </tr></thead>
+                <tbody id="currentStockBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== SUPPLIERS ========== -->
+      <div id="page-suppliers" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-semibold">Suppliers</h2>
+            <p class="text-sm text-slate-500">Manage your suppliers</p>
+          </div>
+          <button onclick="openSupplierModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Supplier
+          </button>
+        </header>
+        <div class="p-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 border-b"><tr>
+                  <th class="text-left px-5 py-3.5 font-medium">Supplier</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Contact</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Phone</th>
+                  <th class="text-left px-5 py-3.5 font-medium">City</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Status</th>
+                  <th class="text-right px-5 py-3.5 font-medium">Actions</th>
+                </tr></thead>
+                <tbody id="suppliersBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== CUSTOMERS ========== -->
+      <div id="page-customers" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-semibold">Customers</h2>
+            <p class="text-sm text-slate-500">Manage your customers</p>
+          </div>
+          <button onclick="openCustomerModal()" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Customer
+          </button>
+        </header>
+        <div class="p-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 border-b"><tr>
+                  <th class="text-left px-5 py-3.5 font-medium">Customer</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Contact</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Phone</th>
+                  <th class="text-left px-5 py-3.5 font-medium">City</th>
+                  <th class="text-left px-5 py-3.5 font-medium">Status</th>
+                  <th class="text-right px-5 py-3.5 font-medium">Actions</th>
+                </tr></thead>
+                <tbody id="customersBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== REPORTS ========== -->
+      <div id="page-reports" class="page flex-1 overflow-y-auto">
+        <header class="bg-white border-b border-slate-200 px-6 py-4">
+          <h2 class="text-xl font-semibold">Reports</h2>
+          <p class="text-sm text-slate-500">Quick reports & overview</p>
+        </header>
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div class="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md cursor-pointer" onclick="showPage('currentstock')">
+              <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-boxes-stacked text-blue-600 text-xl"></i></div>
+              <h3 class="font-semibold text-lg">Stock Summary</h3>
+              <p class="text-sm text-slate-500 mt-1">Current inventory levels</p>
+            </div>
+            <div class="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md cursor-pointer" onclick="showPage('stockin')">
+              <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-arrow-down text-green-600 text-xl"></i></div>
+              <h3 class="font-semibold text-lg">Stock In Report</h3>
+              <p class="text-sm text-slate-500 mt-1">Incoming transactions</p>
+            </div>
+            <div class="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md cursor-pointer" onclick="showPage('stockout')">
+              <div class="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-arrow-up text-red-600 text-xl"></i></div>
+              <h3 class="font-semibold text-lg">Stock Out Report</h3>
+              <p class="text-sm text-slate-500 mt-1">Outgoing transactions</p>
+            </div>
+            <div class="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md cursor-pointer" onclick="showPage('currentstock')">
+              <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-exclamation-triangle text-amber-600 text-xl"></i></div>
+              <h3 class="font-semibold text-lg">Low Stock Report</h3>
+              <p class="text-sm text-slate-500 mt-1">Items needing reorder</p>
+            </div>
+            <div class="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md cursor-pointer" onclick="showPage('suppliers')">
+              <div class="w-12 h-12 bg-violet-50 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-truck text-violet-600 text-xl"></i></div>
+              <h3 class="font-semibold text-lg">Supplier List</h3>
+              <p class="text-sm text-slate-500 mt-1">All suppliers</p>
+            </div>
+            <div class="bg-white rounded-xl border p-6 shadow-sm hover:shadow-md cursor-pointer" onclick="showPage('customers')">
+              <div class="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center mb-4"><i class="fas fa-users text-cyan-600 text-xl"></i></div>
+              <h3 class="font-semibold text-lg">Customer List</h3>
+              <p class="text-sm text-slate-500 mt-1">All customers</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Product Modal -->
+  <div id="productModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b flex justify-between items-center sticky top-0 bg-white">
+        <h3 class="text-lg font-semibold" id="productModalTitle">Add Product</h3>
+        <button onclick="closeModal('productModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="productForm" class="p-6 space-y-4">
+        <input type="hidden" id="productEditIndex">
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Product Name *</label>
+          <input type="text" id="pName" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">SKU *</label>
+            <input type="text" id="pSku" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Category *</label>
+            <select id="pCategory" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+              <option value="">Select</option>
+              <option>Building Materials</option><option>Hardware</option><option>Safety</option><option>Tools</option><option>Paint</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Unit Price (Rs.) *</label>
+            <input type="number" id="pPrice" required min="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Stock *</label>
+            <input type="number" id="pStock" required min="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Reorder Level</label>
+            <input type="number" id="pReorder" min="0" value="10" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Unit</label>
+            <select id="pUnit" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+              <option>pcs</option><option>bags</option><option>boxes</option><option>kg</option><option>liters</option><option>meters</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('productModal')" class="flex-1 px-4 py-2.5 border border-slate-200 rounded-lg text-sm">Cancel</button>
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stock In Modal -->
+  <div id="stockInModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b flex justify-between items-center sticky top-0 bg-white">
+        <h3 class="text-lg font-semibold">New Stock In</h3>
+        <button onclick="closeModal('stockInModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="stockInForm" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Invoice No *</label>
+            <input type="text" id="siInvoice" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Date *</label>
+            <input type="date" id="siDate" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Product *</label>
+          <select id="siProduct" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Supplier *</label>
+          <select id="siSupplier" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Quantity *</label>
+            <input type="number" id="siQty" required min="1" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Unit Cost *</label>
+            <input type="number" id="siCost" required min="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('stockInModal')" class="flex-1 px-4 py-2.5 border rounded-lg text-sm">Cancel</button>
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm">Confirm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stock Out Modal -->
+  <div id="stockOutModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b flex justify-between items-center sticky top-0 bg-white">
+        <h3 class="text-lg font-semibold">New Stock Out</h3>
+        <button onclick="closeModal('stockOutModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="stockOutForm" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Ref No *</label>
+            <input type="text" id="soRef" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Date *</label>
+            <input type="date" id="soDate" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Type *</label>
+          <select id="soType" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+            <option>Sale</option><option>Issue</option><option>Damage</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Product *</label>
+          <select id="soProduct" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Customer *</label>
+          <select id="soCustomer" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Quantity *</label>
+            <input type="number" id="soQty" required min="1" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Unit Price *</label>
+            <input type="number" id="soPrice" required min="0" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('stockOutModal')" class="flex-1 px-4 py-2.5 border rounded-lg text-sm">Cancel</button>
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm">Confirm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Supplier Modal -->
+  <div id="supplierModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div class="px-6 py-4 border-b flex justify-between items-center">
+        <h3 class="text-lg font-semibold" id="supplierModalTitle">Add Supplier</h3>
+        <button onclick="closeModal('supplierModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="supplierForm" class="p-6 space-y-4">
+        <input type="hidden" id="supplierEditIndex">
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Name *</label>
+          <input type="text" id="sName" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Contact *</label>
+            <input type="text" id="sContact" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Phone *</label>
+            <input type="text" id="sPhone" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">City</label>
+            <input type="text" id="sCity" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Status</label>
+            <select id="sStatus" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm"><option>Active</option><option>Inactive</option></select>
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('supplierModal')" class="flex-1 px-4 py-2.5 border rounded-lg text-sm">Cancel</button>
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Customer Modal -->
+  <div id="customerModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div class="px-6 py-4 border-b flex justify-between items-center">
+        <h3 class="text-lg font-semibold" id="customerModalTitle">Add Customer</h3>
+        <button onclick="closeModal('customerModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="customerForm" class="p-6 space-y-4">
+        <input type="hidden" id="customerEditIndex">
+        <div>
+          <label class="block text-sm font-medium mb-1.5">Name *</label>
+          <input type="text" id="cName" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Contact *</label>
+            <input type="text" id="cContact" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Phone *</label>
+            <input type="text" id="cPhone" required class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1.5">City</label>
+            <input type="text" id="cCity" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5">Status</label>
+            <select id="cStatus" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm"><option>Active</option><option>Inactive</option></select>
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('customerModal')" class="flex-1 px-4 py-2.5 border rounded-lg text-sm">Cancel</button>
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ==================== DATA ====================
+    let products = [
+      { name:"Cement Bags 50kg", sku:"SKU-CEM-001", category:"Building Materials", stock:320, price:1850, reorder:50, unit:"bags" },
+      { name:"Steel Rods 12mm", sku:"SKU-STL-012", category:"Building Materials", stock:145, price:3200, reorder:30, unit:"pcs" },
+      { name:"Paint Bucket 20L", sku:"SKU-PNT-020", category:"Paint", stock:48, price:4500, reorder:20, unit:"pcs" },
+      { name:"PVC Pipes 4\"", sku:"SKU-PVC-004", category:"Hardware", stock:12, price:890, reorder:25, unit:"meters" },
+      { name:"Nails 2 inch (Box)", sku:"SKU-NLS-002", category:"Hardware", stock:85, price:450, reorder:20, unit:"boxes" },
+      { name:"Safety Helmets", sku:"SKU-SFT-001", category:"Safety", stock:12, price:1250, reorder:15, unit:"pcs" },
+      { name:"Welding Electrodes", sku:"SKU-WLD-005", category:"Tools", stock:8, price:2800, reorder:20, unit:"boxes" },
+      { name:"Rubber Gloves (L)", sku:"SKU-GLV-003", category:"Safety", stock:0, price:350, reorder:30, unit:"pcs" },
+    ];
+
+    let suppliers = [
+      { name:"Lanka Building Materials", contact:"Nimal Perera", phone:"0771234567", city:"Colombo", status:"Active" },
+      { name:"Ceylon Steel Traders", contact:"Saman Silva", phone:"0719876543", city:"Kelaniya", status:"Active" },
+      { name:"Paint World Pvt Ltd", contact:"Kamal Fernando", phone:"0765432109", city:"Negombo", status:"Active" },
+      { name:"Hardware Hub", contact:"Ruwan Jayasuriya", phone:"0751122334", city:"Kandy", status:"Active" },
+      { name:"Safety First Supplies", contact:"Anura Bandara", phone:"0776655443", city:"Gampaha", status:"Inactive" },
+    ];
+
+    let customers = [
+      { name:"ABC Construction", contact:"Sunil Perera", phone:"0771112233", city:"Colombo", status:"Active" },
+      { name:"City Builders", contact:"Kamal Silva", phone:"0714455667", city:"Kandy", status:"Active" },
+      { name:"Home Depot Lanka", contact:"Nimal Fernando", phone:"0769988776", city:"Negombo", status:"Active" },
+      { name:"Site Transfer - Kandy", contact:"Warehouse Manager", phone:"0812223344", city:"Kandy", status:"Active" },
+      { name:"Site Transfer - Galle", contact:"Site Supervisor", phone:"0913334455", city:"Galle", status:"Active" },
+    ];
+
+    let stockInRecords = [
+      { date:"2026-11-09", invoice:"INV-2026-0048", product:"Cement Bags 50kg", supplier:"Lanka Building Materials", qty:200, cost:1750 },
+      { date:"2026-11-09", invoice:"INV-2026-0047", product:"Paint Bucket 20L", supplier:"Paint World Pvt Ltd", qty:80, cost:4200 },
+      { date:"2026-11-08", invoice:"INV-2026-0046", product:"Nails 2 inch (Box)", supplier:"Hardware Hub", qty:50, cost:420 },
+    ];
+
+    let stockOutRecords = [
+      { date:"2026-11-09", ref:"SO-2026-0032", product:"Steel Rods 12mm", customer:"ABC Construction", type:"Sale", qty:45, price:3500 },
+      { date:"2026-11-09", ref:"SO-2026-0031", product:"Cement Bags 50kg", customer:"City Builders", type:"Sale", qty:120, price:1950 },
+      { date:"2026-11-08", ref:"SO-2026-0030", product:"PVC Pipes 4\"", customer:"Site Transfer - Kandy", type:"Issue", qty:30, price:890 },
+    ];
+
+    // ==================== HELPERS ====================
+    function money(n){ return "Rs. " + Number(n).toLocaleString('en-LK'); }
+    function getStatus(stock, reorder){
+      if(stock===0) return "Out of Stock";
+      if(stock<=reorder) return "Low Stock";
+      return "In Stock";
+    }
+    function statusBadge(s){
+      if(s==="In Stock") return `<span class="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">In Stock</span>`;
+      if(s==="Low Stock") return `<span class="text-xs font-medium bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">Low Stock</span>`;
+      return `<span class="text-xs font-medium bg-red-100 text-red-700 px-2.5 py-1 rounded-full">Out of Stock</span>`;
+    }
+    function activeBadge(s){
+      return s==="Active"
+        ? `<span class="text-xs font-medium bg-green-100 text-green-700 px-2.5 py-1 rounded-full">Active</span>`
+        : `<span class="text-xs font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Inactive</span>`;
+    }
+
+    // ==================== NAVIGATION ====================
+    function showPage(page){
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-'+page).classList.add('active');
+      document.querySelectorAll('.sidebar-link').forEach(l => {
+        l.classList.remove('active');
+        l.classList.add('text-slate-600');
+      });
+      const active = document.querySelector(`[data-page="${page}"]`);
+      if(active){
+        active.classList.add('active');
+        active.classList.remove('text-slate-600');
+      }
+      // refresh relevant tables
+      if(page==='dashboard') renderDashboard();
+      if(page==='products') renderProducts();
+      if(page==='stockin') renderStockIn();
+      if(page==='stockout') renderStockOut();
+      if(page==='currentstock') renderCurrentStock();
+      if(page==='suppliers') renderSuppliers();
+      if(page==='customers') renderCustomers();
+    }
+
+    function closeModal(id){
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('modal-open');
+    }
+    function openModal(id){
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('modal-open');
+    }
+
+    // ==================== LOGIN ====================
+    function togglePassword(){
+      const inp = document.getElementById('loginPassword');
+      const icon = document.getElementById('toggleIcon');
+      if(inp.type==='password'){ inp.type='text'; icon.classList.replace('fa-eye','fa-eye-slash'); }
+      else { inp.type='password'; icon.classList.replace('fa-eye-slash','fa-eye'); }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const pass = document.getElementById('loginPassword').value;
+      if(email==='admin@warehouse.com' && pass==='admin123'){
+        document.getElementById('loginPage').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+        document.getElementById('mainApp').classList.add('flex');
+        showPage('dashboard');
+      } else {
+        alert('Invalid credentials!\n\nUse:\nEmail: admin@warehouse.com\nPassword: admin123');
+      }
+    });
+
+    function logout(){
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('flex');
+      document.getElementById('loginPage').classList.remove('hidden');
+    }
+
+    // ==================== DASHBOARD ====================
+    function renderDashboard(){
+      document.getElementById('dashTotalProducts').textContent = products.length;
+      const value = products.reduce((s,p)=>s + p.stock*p.price, 0);
+      document.getElementById('dashStockValue').textContent = money(value);
+      const low = products.filter(p => getStatus(p.stock,p.reorder)==="Low Stock" || p.stock===0);
+      document.getElementById('dashLowStock').textContent = low.length;
+      document.getElementById('dashLowCount').textContent = low.length;
+      document.getElementById('dashSuppliers').textContent = suppliers.length;
+
+      // recent
+      const recent = [];
+      stockInRecords.slice(0,3).forEach(r => recent.push({...r, type:'In', qty:'+'+r.qty}));
+      stockOutRecords.slice(0,3).forEach(r => recent.push({...r, type:'Out', qty:'-'+r.qty}));
+      recent.sort((a,b)=> b.date.localeCompare(a.date));
+      document.getElementById('dashRecentBody').innerHTML = recent.slice(0,5).map(r => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3 font-medium">${r.product}</td>
+          <td class="px-5 py-3"><span class="text-xs ${r.type==='In'?'bg-green-50 text-green-700':'bg-red-50 text-red-700'} px-2 py-0.5 rounded">${r.type==='In'?'Stock In':'Stock Out'}</span></td>
+          <td class="px-5 py-3 font-medium ${r.type==='In'?'text-green-600':'text-red-600'}">${r.qty}</td>
+          <td class="px-5 py-3 text-slate-500">${r.date}</td>
+        </tr>`).join('');
+
+      document.getElementById('dashLowList').innerHTML = low.map(p => `
+        <div class="flex items-center gap-3 p-3 ${p.stock===0?'bg-red-50 border-red-100':'bg-amber-50 border-amber-100'} rounded-lg border">
+          <div class="w-9 h-9 bg-white rounded-lg flex items-center justify-center shadow-sm"><i class="fas fa-box ${p.stock===0?'text-red-500':'text-amber-500'}"></i></div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium truncate">${p.name}</p>
+            <p class="text-xs text-slate-500">Only ${p.stock} left</p>
+          </div>
+        </div>`).join('') || '<p class="text-sm text-slate-400 text-center py-4">No low stock items</p>';
+    }
+
+    // ==================== PRODUCTS ====================
+    function renderProducts(){
+      const search = (document.getElementById('productSearch')?.value || '').toLowerCase();
+      const cat = document.getElementById('productCategoryFilter')?.value || '';
+      const list = products.filter(p => {
+        const m = p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search);
+        return m && (!cat || p.category===cat);
+      });
+      document.getElementById('productsBody').innerHTML = list.map((p,i) => {
+        const idx = products.indexOf(p);
+        const st = getStatus(p.stock, p.reorder);
+        return `<tr class="hover:bg-slate-50">
+          <td class="px-5 py-3.5"><div class="flex items-center gap-3"><div class="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center"><i class="fas fa-box text-slate-500 text-sm"></i></div><div><p class="font-medium">${p.name}</p><p class="text-xs text-slate-400">${p.unit}</p></div></div></td>
+          <td class="px-5 py-3.5 font-mono text-xs">${p.sku}</td>
+          <td class="px-5 py-3.5">${p.category}</td>
+          <td class="px-5 py-3.5 font-medium ${p.stock<=p.reorder?'text-amber-600':''}">${p.stock}</td>
+          <td class="px-5 py-3.5">${money(p.price)}</td>
+          <td class="px-5 py-3.5">${statusBadge(st)}</td>
+          <td class="px-5 py-3.5 text-right">
+            <button onclick="editProduct(${idx})" class="w-8 h-8 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600"><i class="fas fa-pen text-sm"></i></button>
+            <button onclick="deleteProduct(${idx})" class="w-8 h-8 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600"><i class="fas fa-trash text-sm"></i></button>
+          </td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="7" class="text-center py-10 text-slate-400">No products found</td></tr>';
+    }
+
+    function openProductModal(idx=null){
+      document.getElementById('productForm').reset();
+      document.getElementById('productEditIndex').value = '';
+      document.getElementById('productModalTitle').textContent = 'Add Product';
+      if(idx!==null){
+        const p = products[idx];
+        document.getElementById('productEditIndex').value = idx;
+        document.getElementById('productModalTitle').textContent = 'Edit Product';
+        document.getElementById('pName').value = p.name;
+        document.getElementById('pSku').value = p.sku;
+        document.getElementById('pCategory').value = p.category;
+        document.getElementById('pPrice').value = p.price;
+        document.getElementById('pStock').value = p.stock;
+        document.getElementById('pReorder').value = p.reorder;
+        document.getElementById('pUnit').value = p.unit;
+      }
+      openModal('productModal');
+    }
+    function editProduct(i){ openProductModal(i); }
+    function deleteProduct(i){
+      if(confirm('Delete this product?')){ products.splice(i,1); renderProducts(); renderDashboard(); }
+    }
+    document.getElementById('productForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const data = {
+        name: pName.value, sku: pSku.value, category: pCategory.value,
+        price: +pPrice.value, stock: +pStock.value, reorder: +pReorder.value||10, unit: pUnit.value
+      };
+      const idx = productEditIndex.value;
+      if(idx==='') products.push(data);
+      else products[+idx] = data;
+      closeModal('productModal');
+      renderProducts();
+      renderDashboard();
+    });
+
+    // ==================== STOCK IN ====================
+    function renderStockIn(){
+      document.getElementById('stockInBody').innerHTML = stockInRecords.map(r => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3.5">${r.date}</td>
+          <td class="px-5 py-3.5 font-mono text-xs">${r.invoice}</td>
+          <td class="px-5 py-3.5 font-medium">${r.product}</td>
+          <td class="px-5 py-3.5">${r.supplier}</td>
+          <td class="px-5 py-3.5 text-green-600 font-medium">+${r.qty}</td>
+          <td class="px-5 py-3.5 font-medium">${money(r.qty*r.cost)}</td>
+        </tr>`).join('') || '<tr><td colspan="6" class="text-center py-10 text-slate-400">No records</td></tr>';
+    }
+    function openStockInModal(){
+      document.getElementById('stockInForm').reset();
+      document.getElementById('siDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('siProduct').innerHTML = products.map(p => `<option value="${p.name}">${p.name} (${p.sku})</option>`).join('');
+      document.getElementById('siSupplier').innerHTML = suppliers.filter(s=>s.status==='Active').map(s => `<option>${s.name}</option>`).join('');
+      openModal('stockInModal');
+    }
+    document.getElementById('stockInForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const prodName = siProduct.value;
+      const qty = +siQty.value;
+      const cost = +siCost.value;
+      stockInRecords.unshift({ date:siDate.value, invoice:siInvoice.value, product:prodName, supplier:siSupplier.value, qty, cost });
+      // update product stock
+      const p = products.find(x => x.name===prodName);
+      if(p) p.stock += qty;
+      closeModal('stockInModal');
+      renderStockIn();
+      renderDashboard();
+      alert('Stock In recorded successfully!');
+    });
+
+    // ==================== STOCK OUT ====================
+    function renderStockOut(){
+      document.getElementById('stockOutBody').innerHTML = stockOutRecords.map(r => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3.5">${r.date}</td>
+          <td class="px-5 py-3.5 font-mono text-xs">${r.ref}</td>
+          <td class="px-5 py-3.5 font-medium">${r.product}</td>
+          <td class="px-5 py-3.5">${r.customer}</td>
+          <td class="px-5 py-3.5"><span class="text-xs bg-slate-100 px-2 py-0.5 rounded">${r.type}</span></td>
+          <td class="px-5 py-3.5 text-red-600 font-medium">-${r.qty}</td>
+          <td class="px-5 py-3.5 font-medium">${money(r.qty*r.price)}</td>
+        </tr>`).join('') || '<tr><td colspan="7" class="text-center py-10 text-slate-400">No records</td></tr>';
+    }
+    function openStockOutModal(){
+      document.getElementById('stockOutForm').reset();
+      document.getElementById('soDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('soProduct').innerHTML = products.map(p => `<option value="${p.name}|${p.price}">${p.name} (Stock: ${p.stock})</option>`).join('');
+      document.getElementById('soCustomer').innerHTML = customers.filter(c=>c.status==='Active').map(c => `<option>${c.name}</option>`).join('');
+      openModal('stockOutModal');
+    }
+    document.getElementById('soProduct').addEventListener('change', function(){
+      const parts = this.value.split('|');
+      if(parts[1]) soPrice.value = parts[1];
+    });
+    document.getElementById('stockOutForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const prodName = soProduct.value.split('|')[0];
+      const qty = +soQty.value;
+      const price = +soPrice.value;
+      const p = products.find(x => x.name===prodName);
+      if(p && p.stock < qty){ alert('Not enough stock! Available: '+p.stock); return; }
+      stockOutRecords.unshift({ date:soDate.value, ref:soRef.value, product:prodName, customer:soCustomer.value, type:soType.value, qty, price });
+      if(p) p.stock -= qty;
+      closeModal('stockOutModal');
+      renderStockOut();
+      renderDashboard();
+      alert('Stock Out recorded successfully!');
+    });
+
+    // ==================== CURRENT STOCK ====================
+    function renderCurrentStock(){
+      let totalVal=0, low=0, out=0;
+      document.getElementById('currentStockBody').innerHTML = products.map(p => {
+        const st = getStatus(p.stock, p.reorder);
+        const val = p.stock * p.price;
+        totalVal += val;
+        if(st==="Low Stock") low++;
+        if(st==="Out of Stock") out++;
+        return `<tr class="hover:bg-slate-50">
+          <td class="px-5 py-3.5 font-medium">${p.name}</td>
+          <td class="px-5 py-3.5 font-mono text-xs">${p.sku}</td>
+          <td class="px-5 py-3.5 font-semibold ${p.stock<=p.reorder?'text-amber-600':''}">${p.stock}</td>
+          <td class="px-5 py-3.5 text-slate-500">${p.reorder}</td>
+          <td class="px-5 py-3.5">${money(val)}</td>
+          <td class="px-5 py-3.5">${statusBadge(st)}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('csTotal').textContent = products.length;
+      document.getElementById('csValue').textContent = money(totalVal);
+      document.getElementById('csLow').textContent = low;
+      document.getElementById('csOut').textContent = out;
+    }
+
+    // ==================== SUPPLIERS ====================
+    function renderSuppliers(){
+      document.getElementById('suppliersBody').innerHTML = suppliers.map((s,i) => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3.5"><div class="flex items-center gap-3"><div class="w-9 h-9 bg-primary-50 rounded-lg flex items-center justify-center text-primary-600 font-semibold text-sm">${s.name[0]}</div><p class="font-medium">${s.name}</p></div></td>
+          <td class="px-5 py-3.5">${s.contact}</td>
+          <td class="px-5 py-3.5">${s.phone}</td>
+          <td class="px-5 py-3.5">${s.city||'-'}</td>
+          <td class="px-5 py-3.5">${activeBadge(s.status)}</td>
+          <td class="px-5 py-3.5 text-right">
+            <button onclick="editSupplier(${i})" class="w-8 h-8 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600"><i class="fas fa-pen text-sm"></i></button>
+            <button onclick="deleteSupplier(${i})" class="w-8 h-8 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600"><i class="fas fa-trash text-sm"></i></button>
+          </td>
+        </tr>`).join('');
+    }
+    function openSupplierModal(idx=null){
+      document.getElementById('supplierForm').reset();
+      document.getElementById('supplierEditIndex').value = '';
+      document.getElementById('supplierModalTitle').textContent = 'Add Supplier';
+      if(idx!==null){
+        const s = suppliers[idx];
+        supplierEditIndex.value = idx;
+        supplierModalTitle.textContent = 'Edit Supplier';
+        sName.value = s.name; sContact.value = s.contact; sPhone.value = s.phone; sCity.value = s.city||''; sStatus.value = s.status;
+      }
+      openModal('supplierModal');
+    }
+    function editSupplier(i){ openSupplierModal(i); }
+    function deleteSupplier(i){ if(confirm('Delete supplier?')){ suppliers.splice(i,1); renderSuppliers(); } }
+    document.getElementById('supplierForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const data = { name:sName.value, contact:sContact.value, phone:sPhone.value, city:sCity.value, status:sStatus.value };
+      const idx = supplierEditIndex.value;
+      if(idx==='') suppliers.push(data); else suppliers[+idx]=data;
+      closeModal('supplierModal'); renderSuppliers();
+    });
+
+    // ==================== CUSTOMERS ====================
+    function renderCustomers(){
+      document.getElementById('customersBody').innerHTML = customers.map((c,i) => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-5 py-3.5"><div class="flex items-center gap-3"><div class="w-9 h-9 bg-primary-50 rounded-lg flex items-center justify-center text-primary-600 font-semibold text-sm">${c.name[0]}</div><p class="font-medium">${c.name}</p></div></td>
+          <td class="px-5 py-3.5">${c.contact}</td>
+          <td class="px-5 py-3.5">${c.phone}</td>
+          <td class="px-5 py-3.5">${c.city||'-'}</td>
+          <td class="px-5 py-3.5">${activeBadge(c.status)}</td>
+          <td class="px-5 py-3.5 text-right">
+            <button onclick="editCustomer(${i})" class="w-8 h-8 rounded-lg hover:bg-blue-50 text-slate-400 hover:text-blue-600"><i class="fas fa-pen text-sm"></i></button>
+            <button onclick="deleteCustomer(${i})" class="w-8 h-8 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600"><i class="fas fa-trash text-sm"></i></button>
+          </td>
+        </tr>`).join('');
+    }
+    function openCustomerModal(idx=null){
+      document.getElementById('customerForm').reset();
+      document.getElementById('customerEditIndex').value = '';
+      document.getElementById('customerModalTitle').textContent = 'Add Customer';
+      if(idx!==null){
+        const c = customers[idx];
+        customerEditIndex.value = idx;
+        customerModalTitle.textContent = 'Edit Customer';
+        cName.value = c.name; cContact.value = c.contact; cPhone.value = c.phone; cCity.value = c.city||''; cStatus.value = c.status;
+      }
+      openModal('customerModal');
+    }
+    function editCustomer(i){ openCustomerModal(i); }
+    function deleteCustomer(i){ if(confirm('Delete customer?')){ customers.splice(i,1); renderCustomers(); } }
+    document.getElementById('customerForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const data = { name:cName.value, contact:cContact.value, phone:cPhone.value, city:cCity.value, status:cStatus.value };
+      const idx = customerEditIndex.value;
+      if(idx==='') customers.push(data); else customers[+idx]=data;
+      closeModal('customerModal'); renderCustomers();
+    });
+
+    // Close modals on outside click
+    ['productModal','stockInModal','stockOutModal','supplierModal','customerModal'].forEach(id => {
+      document.getElementById(id).addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(id); });
+    });
+  </script>
+</body>
+</html>
